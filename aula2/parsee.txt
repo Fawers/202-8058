@@ -1,0 +1,5 @@
+Fone de ouvido | 50.00 | 3
+Monitor | 200.50 | 3
+Abajur | 14.99 | 2
+linha quebrada
+Garrafa térmica | 5.00 | 1
