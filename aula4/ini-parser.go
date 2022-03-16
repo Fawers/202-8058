@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -22,10 +23,18 @@ func parseIni(file *os.File) IniMap {
 	header := ""
 	ini[header] = make(IniRecord)
 
-	scanner := bufio.NewScanner(file)
+	reader := bufio.NewReader(file)
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for {
+		line, err := reader.ReadString('\n')
+
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, ":::erro ao ler do arquivo: %s\n", err)
+		}
+
+		line = strings.TrimSpace(line)
 
 		if strings.IndexRune(line, '=') != -1 {
 			parts := strings.SplitN(line, "=", 2)
