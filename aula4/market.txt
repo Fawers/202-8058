@@ -1,0 +1,8 @@
+Apple = 3.50
+Banana = 5.00
+Pineapple = 7.75
+Strawberry = 3.00
+Watermelon = 10.00
+Apricot = 4.50
+Invalid
+NoPrice =
