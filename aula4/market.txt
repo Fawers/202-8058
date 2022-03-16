@@ -6,3 +6,4 @@ Watermelon = 10.00
 Apricot = 4.50
 Invalid
 NoPrice =
+NotAFloat = abc
