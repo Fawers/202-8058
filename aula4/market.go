@@ -1,12 +1,12 @@
 package main
 
-type Fruit = string
-type Price = float64
-type Market = map[Fruit]Price
-type Basket = map[Fruit]uint
+type Fruit string
+type Price float64
+type Market map[Fruit]Price
+type Basket map[Fruit]uint
 
 func buildMarket() Market {
-
+	return nil
 }
 
 func main() {
