@@ -23,7 +23,11 @@ func (d *Dog) Interact(a Animal) {
 	if ok {
 		fmt.Printf("%s está brincando com %s!\n", d.Name, d2.Name)
 	} else {
-		fmt.Printf("%s está estranhando %s\n", d.Name, a.GetName())
+		if c, ok := a.(*Cat); ok {
+			fmt.Printf("%s está perseguindo %s!\n", d.Name, c.Name)
+		} else {
+			fmt.Printf("%s está estranhando %s\n", d.Name, a.GetName())
+		}
 	}
 }
 
@@ -64,10 +68,11 @@ func main() {
 	popcorn := Cat{"Popcorn"}
 
 	rex.MakeSound()
-	thor.Interact(&rex)
-	rex.Interact(&snowball)
-
 	snowball.MakeSound()
+
+	thor.Interact(&rex)
 	popcorn.Interact(&snowball)
+
+	rex.Interact(&snowball)
 	snowball.Interact(&rex)
 }
