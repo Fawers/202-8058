@@ -46,8 +46,64 @@ func buildMarket(filename string) (Market, error) {
 	return market, nil
 }
 
-func mainMenu(market Market) {
+func (m Market) print() {
+	for fruit, price := range m {
+		fmt.Printf("%s: R$ %.2f\n", fruit, price)
+	}
+}
 
+func (b Basket) addFruit(m Market) {
+	m.print()
+
+	var fruit string
+	fmt.Println("Digite a fruta para adicionar")
+	fmt.Scanf("%s", &fruit)
+
+	if _, found := m[fruit]; found {
+		b[fruit] += 1
+	} else {
+		fmt.Println("fruta não encontrada")
+	}
+}
+
+func (b Basket) calcTotal(m Market) (total float64) {
+	for fruit, qty := range b {
+		total += m[fruit] * float64(qty)
+	}
+
+	return
+}
+
+func mainMenu(market Market) {
+	running := true
+	basket := make(Basket)
+
+	for running {
+		var userInput rune
+		fmt.Println(basket)
+		fmt.Println("1: Ver quitanda")
+		fmt.Println("2: Adicionar fruta")
+		fmt.Println("3: Calcular total")
+		fmt.Println("q: Sair")
+		fmt.Scanf("%c\n", &userInput)
+
+		switch userInput {
+		case '1':
+			market.print()
+
+		case '2':
+			basket.addFruit(market)
+
+		case '3':
+			total := basket.calcTotal(market)
+			fmt.Printf("Total: R$ %.2f\n", total)
+
+		case 'q':
+			running = false
+		}
+	}
+
+	fmt.Println("Até logo!")
 }
 
 func main() {
