@@ -28,10 +28,10 @@ func doTimer() {
 
 func main() {
 	ticker := doTicker()
-	timer := time.NewTimer(10 * time.Second)
 
-	<-timer.C
+	for i := 0; i < 10; i++ {
+		fmt.Println(<-ticker.C)
+	}
+
 	ticker.Stop()
-	timer.Reset(3 * time.Second)
-	<-timer.C
 }
