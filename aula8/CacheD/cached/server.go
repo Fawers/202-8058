@@ -19,24 +19,25 @@ import (
 // FAIL
 
 type CacheDServer struct {
-	cd *CacheD
+	address string
+	*CacheD
 }
 
-func NewServer() *CacheDServer {
+func NewServer(address string) *CacheDServer {
 	return &CacheDServer{
-		cd: NewCacheD(),
+		address: address,
+		CacheD:  NewCacheD(),
 	}
 }
 
 func (s *CacheDServer) Start() {
-	address := "localhost:8080"
-	server, err := net.Listen("tcp", address)
+	server, err := net.Listen("tcp", s.address)
 	if err != nil {
-		fmt.Printf("erro ao criar servidor em %s: %s\n", address, err)
+		fmt.Printf("erro ao criar servidor em %s: %s\n", s.address, err)
 		return
 	}
 
-	fmt.Printf("Iniciando servidor em %s\n", address)
+	fmt.Printf("Iniciando servidor em %s\n", s.address)
 
 	for {
 		conn, err := server.Accept()
@@ -69,7 +70,7 @@ func (s *CacheDServer) process(conn net.Conn) {
 		cmd, k, v := command[0], command[1], command[2]
 		switch cmd {
 		case "ADD":
-			if err := s.cd.Add(k, v); err != nil {
+			if err := s.Add(k, v); err != nil {
 				fmt.Printf("erro ao executar ADD: %s\n", err)
 				fmt.Fprintf(conn, "FAIL\n")
 			} else {
@@ -77,7 +78,7 @@ func (s *CacheDServer) process(conn net.Conn) {
 			}
 
 		case "UPDATE":
-			s.cd.Update(k, v)
+			s.Update(k, v)
 			fmt.Fprintf(conn, "OK\n")
 
 		default:
@@ -88,7 +89,7 @@ func (s *CacheDServer) process(conn net.Conn) {
 		cmd, k := command[0], command[1]
 		switch cmd {
 		case "GET":
-			v, err := s.cd.Get(k)
+			v, err := s.Get(k)
 			if err != nil {
 				fmt.Printf("erro ao executar GET: %s\n", err)
 				fmt.Fprintf(conn, "FAIL\n")
@@ -97,7 +98,7 @@ func (s *CacheDServer) process(conn net.Conn) {
 			}
 
 		case "DEL":
-			if err := s.cd.Del(k); err != nil {
+			if err := s.Del(k); err != nil {
 				fmt.Printf("erro ao executar DEL: %s\n", err)
 				fmt.Fprintf(conn, "FAIL\n")
 			} else {
@@ -111,14 +112,14 @@ func (s *CacheDServer) process(conn net.Conn) {
 	case 1:
 		switch command[0] {
 		case "GETALL":
-			pairs := s.cd.GetAll()
+			pairs := s.GetAll()
 			for _, pair := range pairs {
 				fmt.Fprintf(conn, "%s\t%s\n", pair[0], pair[1])
 			}
 			fmt.Fprintf(conn, "OK\n")
 
 		case "DELALL":
-			s.cd.DelAll()
+			s.DelAll()
 			fmt.Fprintf(conn, "OK\n")
 
 		default:
