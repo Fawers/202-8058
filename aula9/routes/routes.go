@@ -2,10 +2,10 @@ package routes
 
 import (
 	"4cache/cached"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
-	"net/url"
-	"strings"
 )
 
 type Routes struct {
@@ -18,122 +18,240 @@ func NewRoutes() *Routes {
 	}
 }
 
-func (ws *Routes) checkExistsAll(q url.Values, queryParam ...string) (map[string]string, bool) {
-	m := make(map[string]string)
-
-	for _, param := range queryParam {
-		if !q.Has(param) {
-			return nil, false
-		}
-		m[param] = q.Get(param)
-	}
-
-	return m, true
-}
-
-func (ws *Routes) index(w http.ResponseWriter, r *http.Request) {
-	links := []string{
-		"<a href=add>add</a>",
-		"<a href=get>get</a>",
-		"<a href=update>update</a>",
-		"<a href=del>del</a>",
-		"<a href=add-all>add all</a>",
-		"<a href=del-all>del all</a>",
-	}
-	content := strings.Join(links, "<br>")
-	fmt.Fprintln(w, content)
+func (r *Routes) Cd() *cached.CacheD {
+	return r.cd
 }
 
 func (ws *Routes) add(w http.ResponseWriter, r *http.Request) {
-	m, ok := ws.checkExistsAll(r.URL.Query(), "key", "value")
-	if !ok {
+	defer r.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	response := ResponseMsg{}
+
+	if r.Method != "POST" {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "400 Bad Request - faltando parâmetro 'key' ou 'value'")
+		response.Msg = fmt.Sprintf("método precisa ser POST; é %s", r.Method)
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
 		return
 	}
 
-	ws.cd.Add(m["key"], m["value"])
-	w.WriteHeader(http.StatusCreated)
+	jsonReq, err := ioutil.ReadAll(r.Body)
 
-	fmt.Fprintln(w, "ok")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response.Msg = err.Error()
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	var payload RequestKeyVal
+	err = json.Unmarshal(jsonReq, &payload)
+
+	if err == nil && (payload.Key == "" || payload.Value == "") {
+		err = fmt.Errorf("faltando campo key ou value no json")
+	}
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response.Msg = fmt.Sprintf("json inválido: %s", err)
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	err = ws.cd.Add(payload.Key, payload.Value)
+
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		response.Msg = err.Error()
+	} else {
+		w.WriteHeader(http.StatusCreated)
+		response.Ok = true
+	}
+
+	jsonResp, _ := json.Marshal(&response)
+	fmt.Fprintf(w, "%s\n", jsonResp)
 }
 
 func (ws *Routes) get(w http.ResponseWriter, r *http.Request) {
-	m, ok := ws.checkExistsAll(r.URL.Query(), "key")
-	if !ok {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "GET" {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "400 Bad Request - faltando parâmetro 'key'")
+		response := ResponseMsg{
+			Msg: fmt.Sprintf("método precisa ser GET; é %s", r.Method)}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
 		return
 	}
 
-	value, err := ws.cd.Get(m["key"])
+	if !r.URL.Query().Has("key") {
+		w.WriteHeader(http.StatusBadRequest)
+		response := ResponseMsg{Msg: "parâmetro key não encontrado"}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	value, err := ws.cd.Get(r.URL.Query().Get("key"))
 
 	if err != nil {
 		w.WriteHeader(404)
-		fmt.Fprintln(w, "chave não encontrada")
-	} else {
-		fmt.Fprintln(w, value)
+		response := ResponseMsg{Msg: err.Error()}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
 	}
+
+	response := ResponseGet{
+		Ok:    true,
+		Value: value,
+	}
+
+	jsonResp, _ := json.Marshal(&response)
+	fmt.Fprintf(w, "%s\n", jsonResp)
 }
 
 func (ws *Routes) update(w http.ResponseWriter, r *http.Request) {
-	m, ok := ws.checkExistsAll(r.URL.Query(), "key", "value")
-	if !ok {
+	defer r.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	response := ResponseMsg{}
+
+	if r.Method != "PUT" {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "400 Bad Request - faltando parâmetro 'key' ou 'value'")
+		response.Msg = fmt.Sprintf("método precisa ser PUT; é %s", r.Method)
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
 		return
 	}
 
-	ws.cd.Update(m["key"], m["value"])
+	jsonReq, err := ioutil.ReadAll(r.Body)
 
-	fmt.Fprintln(w, "ok")
-}
-
-func (ws *Routes) del(w http.ResponseWriter, r *http.Request) {
-	m, ok := ws.checkExistsAll(r.URL.Query(), "key")
-	if !ok {
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "400 Bad Request - faltando parâmetro 'key'")
+		response.Msg = err.Error()
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
 		return
 	}
 
-	err := ws.cd.Del(m["key"])
+	var payload RequestKeyVal
+	err = json.Unmarshal(jsonReq, &payload)
+
+	if err == nil && (payload.Key == "" || payload.Value == "") {
+		err = fmt.Errorf("faltando campo key ou value no json")
+	}
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response.Msg = fmt.Sprintf("json inválido: %s", err)
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	err = ws.cd.Update(payload.Key, payload.Value)
 
 	if err != nil {
 		w.WriteHeader(404)
-		fmt.Fprintln(w, "chave não encontrada")
+		response.Msg = err.Error()
 	} else {
-		fmt.Fprintln(w, "ok")
+		response.Ok = true
 	}
+
+	jsonResp, _ := json.Marshal(&response)
+	fmt.Fprintf(w, "%s\n", jsonResp)
+}
+
+func (ws *Routes) del(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "DELETE" {
+		w.WriteHeader(http.StatusBadRequest)
+		response := ResponseMsg{
+			Msg: fmt.Sprintf("método precisa ser DELETE; é %s", r.Method),
+		}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	if !r.URL.Query().Has("key") {
+		w.WriteHeader(http.StatusBadRequest)
+		response := ResponseMsg{Msg: "parâmetro key não encontrado"}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	key := r.URL.Query().Get("key")
+	err := ws.cd.Del(key)
+
+	if err != nil {
+		w.WriteHeader(404)
+		response := ResponseMsg{Msg: err.Error()}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	response := ResponseDel{
+		Ok:  true,
+		Key: key,
+	}
+
+	jsonResp, _ := json.Marshal(&response)
+	fmt.Fprintf(w, "%s\n", jsonResp)
 }
 
 func (ws *Routes) getAll(w http.ResponseWriter, r *http.Request) {
-	pairs := ws.cd.GetAll()
-	content := ""
+	w.Header().Set("Content-Type", "application/json")
 
-	for _, pair := range pairs {
-		content += pair[0] + " => " + pair[1] + "\n"
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusBadRequest)
+		response := ResponseMsg{
+			Msg: fmt.Sprintf("método precisa ser GET; é %s", r.Method),
+		}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprint(w, content)
+	response := ResponseGetAll{Ok: true, Pairs: []Pair{}}
+	pairs := ws.cd.GetAll()
+
+	for _, pair := range pairs {
+		response.Pairs = append(response.Pairs, Pair{pair[0], pair[1]})
+	}
+
+	jsonResp, _ := json.MarshalIndent(&response, "", "    ")
+	fmt.Fprintf(w, "%s\n", jsonResp)
 }
 
 func (ws *Routes) delAll(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "DELETE" {
+		w.WriteHeader(http.StatusBadRequest)
+		response := ResponseMsg{
+			Msg: fmt.Sprintf("método precisa ser DELETE; é %s", r.Method),
+		}
+		jsonResp, _ := json.Marshal(&response)
+		fmt.Fprintf(w, "%s\n", jsonResp)
+		return
+	}
+
+	response := ResponseMsg{Ok: true}
 	ws.cd.DelAll()
-	fmt.Fprintln(w, "ok")
+
+	jsonResp, _ := json.Marshal(&response)
+	fmt.Fprintf(w, "%s\n", jsonResp)
 }
 
-func GetRoutes() *http.ServeMux {
-	r := NewRoutes()
-
-	r.cd.Add("curso", "go")
-	r.cd.Add("turma", "8058")
-	r.cd.Add("mês", "março")
-
+func GetRoutes(r *Routes) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", r.index)
 	mux.HandleFunc("/add", r.add)
 	mux.HandleFunc("/get", r.get)
 	mux.HandleFunc("/update", r.update)

@@ -54,13 +54,15 @@ func (cd *CacheD) Get(key string) (string, error) {
 	}
 }
 
-func (cd *CacheD) Update(key, value string) bool {
+func (cd *CacheD) Update(key, value string) error {
 	cd.Lock()
 	defer cd.Unlock()
 
-	_, updated := cd.d[key]
+	if _, found := cd.d[key]; !found {
+		return ErrKeyNotFound
+	}
 	cd.d[key] = value
-	return updated
+	return nil
 }
 
 func (cd *CacheD) GetAll() [][2]string {
